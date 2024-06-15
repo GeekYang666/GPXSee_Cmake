@@ -9,6 +9,10 @@ qrc_*.cpp
 Makefile*
 *.qm
 
+.idea
+/build
+/cmake-****
+
 # Binary
 GPXSee
 gpxsee
