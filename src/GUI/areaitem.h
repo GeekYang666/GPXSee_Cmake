@@ -33,7 +33,7 @@ protected:
 	void hoverLeaveEvent(QGraphicsSceneHoverEvent *event);
 
 private:
-	QPainterPath painterPath(Map *map, const Polygon &polygon);
+	QPainterPath painterPath(Map *map, const class Polygon &polygon);
 	void updatePainterPath(Map *map);
 	void updateColor();
 	void updateWidth();

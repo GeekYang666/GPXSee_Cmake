@@ -12,12 +12,12 @@ public:
 	Area() {}
 	Area(const RectC &rect)
 	{
-		Polygon polygon(rect);
+        class Polygon polygon(rect);
 		_polygons.reserve(1);
 		_polygons.append(polygon);
 		_boundingRect = polygon.boundingRect();
 	}
-	Area(const Polygon &polygon)
+	Area(const class Polygon &polygon)
 	{
 		_polygons.reserve(1);
 		_polygons.append(polygon);
@@ -26,7 +26,7 @@ public:
 
 	const QString &name() const {return _name;}
 	const QString &description() const {return _desc;}
-	const QList<Polygon> &polygons() const {return _polygons;}
+	const QList<class Polygon> &polygons() const {return _polygons;}
 	const RectC &boundingRect() const {return _boundingRect;}
 	const PolygonStyle &style() const {return _style;}
 
@@ -41,7 +41,7 @@ public:
 		return true;
 	}
 
-	void append(const Polygon &polygon)
+	void append(const class Polygon &polygon)
 	{
 		_polygons.append(polygon);
 		_boundingRect |= polygon.boundingRect();
@@ -52,7 +52,7 @@ public:
 	void setStyle(const PolygonStyle &style) {_style = style;}
 
 private:
-	QList<Polygon> _polygons;
+	QList<class Polygon> _polygons;
 	QString _name;
 	QString _desc;
 	PolygonStyle _style;

@@ -64,7 +64,7 @@ private:
 
 
 #ifndef QT_NO_DEBUG
-inline QDebug operator<<(QDebug dbg, const Polygon &poly)
+inline QDebug operator<<(QDebug dbg, const class Polygon &poly)
 {
 	dbg.nospace() << "Polygon(" << poly._paths << ")";
 	return dbg.space();
