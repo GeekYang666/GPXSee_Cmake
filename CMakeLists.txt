@@ -122,7 +122,7 @@ set(QRC_FILES
 
 set(TS_FILES
         lang/gpxsee_en.ts
-        lang/gpxsee_zh.ts
+        lang/gpxsee_zh_CN.ts
         )
 
 set_source_files_properties(${TS_FILES} PROPERTIES OUTPUT_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/translations)
@@ -145,7 +145,7 @@ add_library(Solution SHARED
 
 #创建工程文件
 # add_executable(${PROJECT_NAME} ${SRC_FILES} ${HEAD_FILES} ${QRC_FILES} ${WRAP_FILES})
-add_executable(${PROJECT_NAME}
+add_executable(${PROJECT_NAME} WIN32
         ${SOURCES}
         ${header_SRCS}
         ${QRC_FILES}
