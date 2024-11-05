@@ -1,4 +1,5 @@
 #include <cstring>
+#include <QTimeZone>
 #include "common/util.h"
 #include "igcparser.h"
 
@@ -160,7 +161,7 @@ bool IGCParser::readBRecord(CTX &ctx, const char *line, int len,
 	ctx.time = time;
 
 	Trackpoint t(Coordinates(lon, lat));
-	t.setTimestamp(QDateTime(ctx.date, ctx.time, Qt::UTC));
+	t.setTimestamp(QDateTime(ctx.date, ctx.time, QTimeZone::utc()));
 	t.setElevation(ele);
 	segment.append(t);
 
@@ -237,6 +238,7 @@ bool IGCParser::parse(QFile *file, QList<TrackData> &tracks,
 				} else {
 					route = true;
 					routes.append(RouteData());
+					routes.last().setFile(file->fileName());
 				}
 			} else if (line[0] == 'B') {
 				if (ctx.date.isNull()) {
@@ -248,6 +250,7 @@ bool IGCParser::parse(QFile *file, QList<TrackData> &tracks,
 				}
 				if (!track) {
 					tracks.append(SegmentData());
+					tracks.last().setFile(file->fileName());
 					ctx.time = QTime(0, 0);
 					track = true;
 				}

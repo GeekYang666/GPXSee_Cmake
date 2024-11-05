@@ -1,12 +1,12 @@
-#include <QPainter>
-#include "map/map.h"
+#include <QLocale>
+#include "common/util.h"
 #include "data/track.h"
 #include "format.h"
 #include "tooltip.h"
 #include "trackitem.h"
 
 
-ToolTip TrackItem::info() const
+ToolTip TrackItem::info(bool extended) const
 {
 	ToolTip tt;
 	QLocale l;
@@ -23,9 +23,11 @@ ToolTip TrackItem::info() const
 		tt.insert(tr("Total time"), Format::timeSpan(_time));
 	if  (_movingTime > 0)
 		tt.insert(tr("Moving time"), Format::timeSpan(_movingTime));
-	if (!_date.isNull())
-		tt.insert(tr("Date"), l.toString(_date.toTimeZone(_timeZone),
-		  QLocale::ShortFormat));
+	if (!_date.isNull()) {
+		QDateTime date(_date.toTimeZone(_timeZone));
+		tt.insert(tr("Date"), l.toString(date.date(), QLocale::ShortFormat)
+		  + " " + date.time().toString("h:mm:ss"));
+	}
 	if (!_links.isEmpty()) {
 		QString links;
 		for (int i = 0; i < _links.size(); i++) {
@@ -37,6 +39,13 @@ ToolTip TrackItem::info() const
 		}
 		tt.insert(tr("Links"), links);
 	}
+#ifdef Q_OS_ANDROID
+	Q_UNUSED(extended);
+#else // Q_OS_ANDROID
+	if (extended && !_file.isEmpty())
+		tt.insert(tr("File"), QString("<a href=\"file:%1\">%2</a>")
+		  .arg(_file, QFileInfo(_file).fileName()));
+#endif // Q_OS_ANDROID
 
 	return tt;
 }
@@ -51,4 +60,5 @@ TrackItem::TrackItem(const Track &track, Map *map, QGraphicsItem *parent)
 	_date = track.date();
 	_time = track.time();
 	_movingTime = track.movingTime();
+	_file = track.file();
 }

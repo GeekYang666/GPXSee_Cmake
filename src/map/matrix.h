@@ -5,6 +5,8 @@
 #include <QVector>
 #include <QDebug>
 
+class Coordinates;
+
 template <class T>
 class Matrix
 {
@@ -19,6 +21,7 @@ public:
 	T &at(int n) {return _m[n];}
 	T &at(int i, int j) {return _m[_w * i + j];}
 	T const &at(int i, int j) const {return _m.at(_w * i + j);}
+	T *row(int i) {return &_m[_w * i];}
 
 	bool isNull() const {return (_h == 0 || _w == 0);}
 	int size() const {return _m.size();}
@@ -33,10 +36,13 @@ class MatrixD : public Matrix<double>
 public:
 	MatrixD() : Matrix<double>() {}
 	MatrixD(int h, int w) : Matrix<double>(h, w) {}
+	MatrixD(int h, int w, double val) : Matrix<double>(h, w, val) {}
 
 	bool eliminate(double epsilon = DBL_EPSILON);
 	MatrixD augemented(const MatrixD &M) const;
 };
+
+typedef Matrix<Coordinates> MatrixC;
 
 #ifndef QT_NO_DEBUG
 template <class T>

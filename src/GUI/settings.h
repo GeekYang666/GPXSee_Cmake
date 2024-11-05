@@ -95,6 +95,7 @@ public:
 	static const Setting activeMap;
 	static const Setting showMap;
 	static const Setting cursorCoordinates;
+	static const Setting layers;
 
 	/* Graph */
 	static const Setting showGraphs;
@@ -182,6 +183,7 @@ public:
 	static const Setting cadenceFilter;
 	static const Setting powerFilter;
 	static const Setting outlierEliminate;
+	static const Setting detectPauses;
 	static const Setting automaticPause;
 	static const Setting pauseSpeed;
 	static const Setting pauseInterval;

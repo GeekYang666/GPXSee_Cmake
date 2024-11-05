@@ -1,4 +1,4 @@
-#include "common/dem.h"
+#include "map/map.h"
 #include "track.h"
 
 
@@ -8,6 +8,7 @@ int Track::_heartRateWindow = 3;
 int Track::_cadenceWindow = 3;
 int Track::_powerWindow = 3;
 
+bool Track::_detectPauses = true;
 bool Track::_automaticPause = true;
 qreal Track::_pauseSpeed = 0.5;
 int Track::_pauseInterval = 10;
@@ -181,32 +182,33 @@ Track::Track(const TrackData &data) : _pause(0)
 		if (!hasTime)
 			continue;
 
+		if (_detectPauses) {
+			// get stop-points + pause duration
+			int pauseInterval;
+			qreal pauseSpeed;
 
-		// get stop-points + pause duration
-		int pauseInterval;
-		qreal pauseSpeed;
+			if (_automaticPause) {
+				pauseSpeed = (avg(seg.speed) > 2.8) ? 0.40 : 0.15;
+				pauseInterval = 10;
+			} else {
+				pauseSpeed = _pauseSpeed;
+				pauseInterval = _pauseInterval;
+			}
 
-		if (_automaticPause) {
-			pauseSpeed = (avg(seg.speed) > 2.8) ? 0.40 : 0.15;
-			pauseInterval = 10;
-		} else {
-			pauseSpeed = _pauseSpeed;
-			pauseInterval = _pauseInterval;
-		}
+			int ss = 0, la = 0;
+			for (int j = 1; j < seg.time.size(); j++) {
+				if (seg.speed.at(j) > pauseSpeed)
+					ss = -1;
+				else if (ss < 0)
+					ss = j-1;
 
-		int ss = 0, la = 0;
-		for (int j = 1; j < seg.time.size(); j++) {
-			if (seg.speed.at(j) > pauseSpeed)
-				ss = -1;
-			else if (ss < 0)
-				ss = j-1;
-
-			if (ss >= 0 && seg.time.at(j) > seg.time.at(ss) + pauseInterval) {
-				int l = qMax(ss, la);
-				_pause += seg.time.at(j) - seg.time.at(l);
-				for (int k = l; k <= j; k++)
-					seg.stop.insert(k);
-				la = j;
+				if (ss >= 0 && seg.time.at(j) > seg.time.at(ss) + pauseInterval) {
+					int l = qMax(ss, la);
+					_pause += seg.time.at(j) - seg.time.at(l);
+					for (int k = l; k <= j; k++)
+						seg.stop.insert(k);
+					la = j;
+				}
 			}
 		}
 
@@ -277,11 +279,10 @@ Graph Track::gpsElevation() const
 	return ret;
 }
 
-Graph Track::demElevation() const
+Graph Track::demElevation(Map *map) const
 {
 	Graph ret;
 
-	DEM::lock();
 	for (int i = 0; i < _data.size(); i++) {
 		const SegmentData &sd = _data.at(i);
 		if (sd.size() < 2)
@@ -290,7 +291,7 @@ Graph Track::demElevation() const
 		GraphSegment gs(seg.start);
 
 		for (int j = 0; j < sd.size(); j++) {
-			qreal dem = DEM::elevation(sd.at(j).coordinates());
+			qreal dem = map->elevation(sd.at(j).coordinates());
 			if (std::isnan(dem) || seg.outliers.contains(j))
 				continue;
 			gs.append(GraphPoint(seg.distance.at(j), seg.time.at(j), dem));
@@ -299,7 +300,6 @@ Graph Track::demElevation() const
 		if (gs.size() >= 2)
 			ret.append(filter(gs, _elevationWindow));
 	}
-	DEM::unlock();
 
 	if (_data.style().color().isValid())
 		ret.setColor(_data.style().color());
@@ -307,18 +307,18 @@ Graph Track::demElevation() const
 	return ret;
 }
 
-GraphPair Track::elevation() const
+GraphPair Track::elevation(Map *map) const
 {
 	if (_useDEM) {
-		Graph dem(demElevation());
+		Graph dem(demElevation(map));
 		return (dem.isEmpty())
 		  ? GraphPair(gpsElevation(), Graph())
 		  : GraphPair(dem, _show2ndElevation ? gpsElevation() : Graph());
 	} else {
 		Graph gps(gpsElevation());
 		return (gps.isEmpty())
-		  ? GraphPair(demElevation(), Graph())
-		  : GraphPair(gps, _show2ndElevation ? demElevation() : Graph());
+		  ? GraphPair(demElevation(map), Graph())
+		  : GraphPair(gps, _show2ndElevation ? demElevation(map) : Graph());
 	}
 }
 

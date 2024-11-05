@@ -71,8 +71,9 @@ static QRectF bbox(const RectC &rect, Map *map, int samples = 100)
 	return prect;
 }
 
-ToolTip MapItem::info() const
+ToolTip MapItem::info(bool extended) const
 {
+	Q_UNUSED(extended);
 	ToolTip tt;
 
 	if (!_name.isEmpty())
@@ -212,7 +213,10 @@ void MapItem::hoverEnterEvent(QGraphicsSceneHoverEvent *event)
 	update();
 
 #ifdef Q_OS_ANDROID
-	Popup::show(event->screenPos(), info(), event->widget());
+	GraphicsScene *gs = dynamic_cast<GraphicsScene *>(scene());
+	if (gs)
+		Popup::show(event->screenPos(), info(gs->showExtendedInfo()),
+		  event->widget());
 #endif // Q_OS_ANDROID
 }
 

@@ -33,7 +33,8 @@ static QString capitalized(const QString &str)
 		QChar last(str.at(i-1));
 		QChar c(str.at(i));
 
-		ret[i] = (last.isSpace() || last == '(') ? c : c.toLower();
+		ret[i] = (last.isSpace() || last == '(' || last == '"')
+			? c : c.toLower();
 	}
 
 	return ret;
@@ -42,7 +43,7 @@ static QString capitalized(const QString &str)
 static QByteArray ft2m(const QByteArray &str)
 {
 	bool ok;
-	int number = str.toInt(&ok);
+	double number = str.toDouble(&ok);
 	return ok ? QByteArray::number(qRound(number * 0.3048)) : str;
 }
 

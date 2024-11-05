@@ -1,7 +1,7 @@
 #include <QFont>
 #include <QPainter>
 #include <QCache>
-#include "common/dem.h"
+#include "map/dem.h"
 #include "map/textpathitem.h"
 #include "map/textpointitem.h"
 #include "map/bitmapline.h"
@@ -70,32 +70,21 @@ static int minShieldZoom(Shield::Type type)
 	}
 }
 
-static qreal area(const QVector<QPointF> &polygon)
-{
-	qreal area = 0;
-
-	for (int i = 0; i < polygon.size(); i++) {
-		int j = (i + 1) % polygon.size();
-		area += polygon.at(i).x() * polygon.at(j).y();
-		area -= polygon.at(i).y() * polygon.at(j).x();
-	}
-	area /= 2.0;
-
-	return area;
-}
-
 static QPointF centroid(const QVector<QPointF> &polygon)
 {
+	qreal area = 0;
 	qreal cx = 0, cy = 0;
-	qreal factor = 1.0 / (6.0 * area(polygon));
 
 	for (int i = 0; i < polygon.size(); i++) {
-		int j = (i + 1) % polygon.size();
+		int j = (i == polygon.size() - 1) ? 0 : i + 1;
 		qreal f = (polygon.at(i).x() * polygon.at(j).y() - polygon.at(j).x()
 		  * polygon.at(i).y());
+		area += f;
 		cx += (polygon.at(i).x() + polygon.at(j).x()) * f;
 		cy += (polygon.at(i).y() + polygon.at(j).y()) * f;
 	}
+
+	qreal factor = 1.0 / (3.0 * area);
 
 	return QPointF(cx * factor, cy * factor);
 }
@@ -156,6 +145,9 @@ void RasterTile::drawPolygons(QPainter *painter,
 				continue;
 
 			if (poly.raster.isValid()) {
+				if (!_rasters)
+					continue;
+
 				RectC r(poly.raster.rect());
 				QPointF tl(ll2xy(r.topLeft()));
 				QPointF br(ll2xy(r.bottomRight()));
@@ -184,6 +176,9 @@ void RasterTile::drawPolygons(QPainter *painter,
 				//painter->drawRect(QRectF(tl, br));
 				//painter->setRenderHint(QPainter::Antialiasing);
 			} else {
+				if (!_vectors)
+					continue;
+
 				const Style::Polygon &style = _data->style()->polygon(poly.type);
 
 				painter->setPen(style.pen());
@@ -248,6 +243,9 @@ void RasterTile::processPolygons(const QList<MapData::Poly> &polygons,
 {
 	QSet<QString> set;
 	QList<TextItem *> labels;
+
+	if (!_vectors)
+		return;
 
 	for (int i = 0; i < polygons.size(); i++) {
 		const MapData::Poly &poly = polygons.at(i);
@@ -405,31 +403,36 @@ void RasterTile::processPoints(QList<MapData::Point> &points,
 
 	for (int i = 0; i < points.size(); i++) {
 		const MapData::Point &point = points.at(i);
-		const Style::Point &style = _data->style()->point(point.type);
+		const Style *style = _data->style();
+		const Style::Point &ps = style->point(point.type);
 		bool poi = Style::isPOI(point.type);
 
 		const QString *label = point.label.text().isEmpty()
 		  ? 0 : &(point.label.text());
-		const QImage *img = style.img().isNull() ? 0 : &style.img();
+		const QImage *img = ps.img().isNull() ? 0 : &ps.img();
 		const QFont *fnt = poi
-		  ? poiFont(style.text().size(), _zoom, point.classLabel)
-		  : _data->style()->font(style.text().size());
-		const QColor *color = style.text().color().isValid()
-		  ? &style.text().color() : &textColor;
+		  ? poiFont(ps.text().size(), _zoom, point.flags
+			& MapData::Point::ClassLabel)
+		  : style->font(ps.text().size());
+		const QColor *color = ps.text().color().isValid()
+		  ? &ps.text().color() : &textColor;
 		const QColor *hcolor = Style::isDepthPoint(point.type)
 		  ? 0 : &haloColor;
 
 		if ((!label || !fnt) && !img)
 			continue;
 
-		QPoint offset = img ? style.offset() : QPoint(0, 0);
+		QPoint pos(point.coordinates.lon(), point.coordinates.lat());
+		QPoint offset = img ? ps.offset() : QPoint(0, 0);
 
-		TextPointItem *item = new TextPointItem(QPoint(point.coordinates.lon(),
-		  point.coordinates.lat()) + offset, label, fnt, img, color, hcolor, 0,
-		  ICON_PADDING);
-		if (item->isValid() && !item->collides(textItems))
+		TextPointItem *item = new TextPointItem(pos + offset, label, fnt, img,
+		  color, hcolor, 0, ICON_PADDING);
+		if (item->isValid() && !item->collides(textItems)) {
 			textItems.append(item);
-		else
+			if (Style::isLight(point.type) || point.flags & MapData::Point::Light)
+				textItems.append(new TextPointItem(pos + style->lightOffset(),
+				  0, 0, style->light(), 0, 0, 0, 0));
+		} else
 			delete item;
 	}
 }
@@ -444,30 +447,29 @@ void RasterTile::fetchData(QList<MapData::Poly> &polygons,
 	RectD polyRectD(_transform.img2proj(polyRect.topLeft()),
 	  _transform.img2proj(polyRect.bottomRight()));
 	_data->polys(polyRectD.toRectC(_proj, 20), _zoom,
-	  &polygons, &lines);
+	  &polygons, _vectors ? &lines : 0);
 
-	QRectF pointRect(QPointF(ttl.x() - TEXT_EXTENT, ttl.y() - TEXT_EXTENT),
-	  QPointF(ttl.x() + _rect.width() + TEXT_EXTENT, ttl.y() + _rect.height()
-	  + TEXT_EXTENT));
-	RectD pointRectD(_transform.img2proj(pointRect.topLeft()),
-	  _transform.img2proj(pointRect.bottomRight()));
-	_data->points(pointRectD.toRectC(_proj, 20), _zoom, &points);
+	if (_vectors) {
+		QRectF pointRect(QPointF(ttl.x() - TEXT_EXTENT, ttl.y() - TEXT_EXTENT),
+		  QPointF(ttl.x() + _rect.width() + TEXT_EXTENT, ttl.y() + _rect.height()
+		  + TEXT_EXTENT));
+		RectD pointRectD(_transform.img2proj(pointRect.topLeft()),
+		  _transform.img2proj(pointRect.bottomRight()));
+		_data->points(pointRectD.toRectC(_proj, 20), _zoom, &points);
+	}
 }
 
 MatrixD RasterTile::elevation(int extend) const
 {
-	MatrixD m(_rect.height() + 2 * extend, _rect.width() + 2 * extend);
-	QVector<Coordinates> ll;
-
 	int left = _rect.left() - extend;
 	int right = _rect.right() + extend;
 	int top = _rect.top() - extend;
 	int bottom = _rect.bottom() + extend;
 
-	ll.reserve(m.w() * m.h());
-	for (int y = top; y <= bottom; y++)
-		for (int x = left; x <= right; x++)
-			ll.append(xy2ll(QPointF(x, y)));
+	MatrixC ll(_rect.height() + 2 * extend, _rect.width() + 2 * extend);
+	for (int y = top, i = 0; y <= bottom; y++)
+		for (int x = left; x <= right; x++, i++)
+			ll.at(i) = xy2ll(QPointF(x, y));
 
 	if (_data->hasDEM()) {
 		RectC rect;
@@ -482,16 +484,13 @@ MatrixD RasterTile::elevation(int extend) const
 		  -rect.height() / factor), _zoom, &tiles);
 
 		DEMTree tree(tiles);
+		MatrixD m(ll.h(), ll.w());
 		for (int i = 0; i < ll.size(); i++)
 			m.at(i) = tree.elevation(ll.at(i));
-	} else {
-		DEM::lock();
-		for (int i = 0; i < ll.size(); i++)
-			m.at(i) = DEM::elevation(ll.at(i));
-		DEM::unlock();
-	}
 
-	return m;
+		return m;
+	} else
+		return DEM::elevation(ll);
 }
 
 void RasterTile::drawHillShading(QPainter *painter) const

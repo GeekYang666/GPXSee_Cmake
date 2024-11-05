@@ -29,10 +29,10 @@
 #include <QGeoPositionInfoSource>
 #include "common/config.h"
 #include "common/programpaths.h"
-#include "common/downloader.h"
-#include "common/demloader.h"
 #include "data/data.h"
 #include "data/poi.h"
+#include "map/downloader.h"
+#include "map/demloader.h"
 #include "map/maplist.h"
 #include "map/emptymap.h"
 #include "map/crs.h"
@@ -364,6 +364,21 @@ void GUI::createActions()
 	_showCoordinatesAction->setCheckable(true);
 	connect(_showCoordinatesAction, &QAction::triggered, _mapView,
 	  &MapView::showCursorCoordinates);
+	QActionGroup *mapLayersGroup = new QActionGroup(this);
+	connect(mapLayersGroup, &QActionGroup::triggered, this,
+	  &GUI::selectMapLayers);
+	_drawAllAction = new QAction(tr("All"), this);
+	_drawAllAction->setMenuRole(QAction::NoRole);
+	_drawAllAction->setCheckable(true);
+	_drawAllAction->setActionGroup(mapLayersGroup);
+	_drawRastersAction = new QAction(tr("Raster only"), this);
+	_drawRastersAction->setMenuRole(QAction::NoRole);
+	_drawRastersAction->setCheckable(true);
+	_drawRastersAction->setActionGroup(mapLayersGroup);
+	_drawVectorsAction = new QAction(tr("Vector only"), this);
+	_drawVectorsAction->setMenuRole(QAction::NoRole);
+	_drawVectorsAction->setCheckable(true);
+	_drawVectorsAction->setActionGroup(mapLayersGroup);
 
 	// Position
 	_showPositionAction = new QAction(QIcon::fromTheme(SHOW_POS_NAME,
@@ -399,15 +414,18 @@ void GUI::createActions()
 	_showRoutesAction = new QAction(tr("Show routes"), this);
 	_showRoutesAction->setMenuRole(QAction::NoRole);
 	_showRoutesAction->setCheckable(true);
+	_showRoutesAction->setShortcut(SHOW_ROUTES_SHORTCUT);
 	connect(_showRoutesAction, &QAction::triggered, this, &GUI::showRoutes);
 	_showWaypointsAction = new QAction(tr("Show waypoints"), this);
 	_showWaypointsAction->setMenuRole(QAction::NoRole);
 	_showWaypointsAction->setCheckable(true);
+	_showWaypointsAction->setShortcut(SHOW_WAYPOINTS_SHORTCUT);
 	connect(_showWaypointsAction, &QAction::triggered, this,
 	  &GUI::showWaypoints);
 	_showAreasAction = new QAction(tr("Show areas"), this);
 	_showAreasAction->setMenuRole(QAction::NoRole);
 	_showAreasAction->setCheckable(true);
+	_showAreasAction->setShortcut(SHOW_AREAS_SHORTCUT);
 	connect(_showAreasAction, &QAction::triggered, this, &GUI::showAreas);
 	_showWaypointIconsAction = new QAction(tr("Waypoint icons"), this);
 	_showWaypointIconsAction->setMenuRole(QAction::NoRole);
@@ -674,6 +692,11 @@ void GUI::createMenus()
 	_mapMenu->addAction(_loadMapDirAction);
 	_mapMenu->addAction(_clearMapCacheAction);
 	_mapMenu->addSeparator();
+	QMenu *layersMenu = _mapMenu->addMenu(tr("Layers"));
+	layersMenu->menuAction()->setMenuRole(QAction::NoRole);
+	layersMenu->addAction(_drawAllAction);
+	layersMenu->addAction(_drawRastersAction);
+	layersMenu->addAction(_drawVectorsAction);
 	_mapMenu->addAction(_showCoordinatesAction);
 	_mapMenu->addSeparator();
 	_mapMenu->addAction(_showMapAction);
@@ -1066,6 +1089,8 @@ bool GUI::openFile(const QString &fileName, bool tryUnknown, int &showError)
 	updateNavigationActions();
 	updateStatusBarInfo();
 	updateWindowTitle();
+	if (_files.count() > 1)
+		_mapView->showExtendedInfo(true);
 #ifndef Q_OS_ANDROID
 	updateRecentFiles(canonicalFileName);
 #endif // Q_OS_ANDROID
@@ -1145,7 +1170,9 @@ void GUI::loadData(const Data &data)
 		_pathName = QString();
 
 	for (int i = 0; i < _tabs.count(); i++)
-		graphs.append(_tabs.at(i)->loadData(data));
+		graphs.append(_tabs.at(i)->loadData(data, _map));
+	/* Refreshing the splitter is necessary to update the map viewport and
+	   properly fit the data! */
 	if (updateGraphTabs())
 		_splitter->refresh();
 	paths = _mapView->loadData(data);
@@ -1457,7 +1484,7 @@ void GUI::plotMainPage(QPainter *painter, const QRectF &rect, qreal ratio,
 		sc = 1;
 	}
 
-	MapView::PlotFlags flags;
+	MapView::Flags flags;
 	if (_options.hiresPrint)
 		flags |= MapView::HiRes;
 	if (expand)
@@ -1552,6 +1579,7 @@ void GUI::reloadFiles()
 		_browser->setCurrent(_files.last());
 #endif // Q_OS_ANDROID
 	updateDataDEMDownloadAction();
+	_mapView->showExtendedInfo(_files.size() > 1);
 }
 
 void GUI::closeFiles()
@@ -1572,6 +1600,7 @@ void GUI::closeFiles()
 	_lastTab = 0;
 
 	_mapView->clear();
+	_mapView->showExtendedInfo(false);
 
 	_files.clear();
 }
@@ -1709,6 +1738,16 @@ void GUI::showPathMarkerInfo(QAction *action)
 		_mapView->showMarkers(false);
 		_mapView->showMarkerInfo(MarkerInfoItem::None);
 	}
+}
+
+void GUI::selectMapLayers(QAction *action)
+{
+	if (action == _drawVectorsAction)
+		_mapView->selectLayers(MapView::Layer::Vector);
+	else if (action == _drawRastersAction)
+		_mapView->selectLayers(MapView::Layer::Raster);
+	else
+		_mapView->selectLayers(MapView::Layer::Raster | MapView::Layer::Vector);
 }
 
 void GUI::loadMap()
@@ -1980,10 +2019,7 @@ void GUI::demLoaded()
 	}
 
 	_demRects.clear();
-
-	DEM::lock();
 	DEM::clearCache();
-	DEM::unlock();
 
 	reloadFiles();
 	reloadMap();
@@ -2063,7 +2099,7 @@ void GUI::updateRecentFiles(const QString &fileName)
 	if (a)
 		delete a;
 	else if (actions.size() == MAX_RECENT_FILES)
-		delete actions.last();
+		delete actions.first();
 
 	actions = _recentFilesActionGroup->actions();
 	QAction *before = actions.size() ? actions.last() : _recentFilesEnd;
@@ -2471,10 +2507,19 @@ void GUI::writeSettings()
 #endif // Q_OS_ANDROID
 
 	/* Map */
+	MapView::Layers ml;
+	if (_drawRastersAction->isChecked())
+		ml = MapView::Layer::Raster;
+	else if (_drawVectorsAction->isChecked())
+		ml = MapView::Layer::Vector;
+	else
+		ml = MapView::Layer::Raster | MapView::Layer::Vector;
+
 	settings.beginGroup(SETTINGS_MAP);
 	WRITE(activeMap, _map->name());
 	WRITE(showMap, _showMapAction->isChecked());
 	WRITE(cursorCoordinates, _showCoordinatesAction->isChecked());
+	WRITE(layers, (int)ml);
 	settings.endGroup();
 
 	/* Graph */
@@ -2594,6 +2639,7 @@ void GUI::writeSettings()
 	WRITE(cadenceFilter, _options.cadenceFilter);
 	WRITE(powerFilter, _options.powerFilter);
 	WRITE(outlierEliminate, _options.outlierEliminate);
+	WRITE(detectPauses, _options.detectPauses);
 	WRITE(automaticPause, _options.automaticPause);
 	WRITE(pauseSpeed, _options.pauseSpeed);
 	WRITE(pauseInterval, _options.pauseInterval);
@@ -2708,6 +2754,15 @@ void GUI::readSettings(QString &activeMap, QStringList &disabledPOIs,
 		_showCoordinatesAction->setChecked(true);
 		_mapView->showCursorCoordinates(true);
 	}
+	int layers = READ(layers).toInt();
+	if (layers == MapView::Layer::Raster) {
+		_drawRastersAction->setChecked(true);
+		_mapView->selectLayers(MapView::Layer::Raster);
+	} else if (layers == MapView::Layer::Vector) {
+		_drawVectorsAction->setChecked(true);
+		_mapView->selectLayers(MapView::Layer::Vector);
+	} else
+		_drawAllAction->setChecked(true);
 	activeMap = READ(activeMap).toString();
 	settings.endGroup();
 
@@ -2823,10 +2878,10 @@ void GUI::readSettings(QString &activeMap, QStringList &disabledPOIs,
 
 	/* DEM */
 	settings.beginGroup(SETTINGS_DEM);
-	if (READ(drawHillShading).toBool()) {
+	if (READ(drawHillShading).toBool())
 		_drawHillShadingAction->setChecked(true);
-		_mapView->drawHillShading(true);
-	}
+	else
+		_mapView->drawHillShading(false);
 	settings.endGroup();
 
 	/* Position */
@@ -2901,6 +2956,7 @@ void GUI::readSettings(QString &activeMap, QStringList &disabledPOIs,
 	_options.powerFilter = READ(powerFilter).toInt();
 	_options.outlierEliminate = READ(outlierEliminate).toBool();
 	_options.pauseSpeed = READ(pauseSpeed).toFloat();
+	_options.detectPauses = READ(detectPauses).toBool();
 	_options.automaticPause = READ(automaticPause).toBool();
 	_options.pauseInterval = READ(pauseInterval).toInt();
 	_options.useReportedSpeed = READ(useReportedSpeed).toBool();
@@ -2993,6 +3049,7 @@ void GUI::loadOptions()
 	Track::setCadenceFilter(_options.cadenceFilter);
 	Track::setPowerFilter(_options.powerFilter);
 	Track::setOutlierElimination(_options.outlierEliminate);
+	Track::detectPauses(_options.detectPauses);
 	Track::setAutomaticPause(_options.automaticPause);
 	Track::setPauseSpeed(_options.pauseSpeed);
 	Track::setPauseInterval(_options.pauseInterval);
@@ -3010,9 +3067,7 @@ void GUI::loadOptions()
 	Downloader::setTimeout(_options.connectionTimeout);
 
 	QPixmapCache::setCacheLimit(_options.pixmapCache * 1024);
-	DEM::lock();
 	DEM::setCacheSize(_options.demCache * 1024);
-	DEM::unlock();
 
 	HillShading::setAlpha(_options.hillshadingAlpha);
 	HillShading::setBlur(_options.hillshadingBlur);
@@ -3121,6 +3176,7 @@ void GUI::updateOptions(const Options &options)
 	SET_TRACK_OPTION(cadenceFilter, setCadenceFilter);
 	SET_TRACK_OPTION(powerFilter, setPowerFilter);
 	SET_TRACK_OPTION(outlierEliminate, setOutlierElimination);
+	SET_TRACK_OPTION(detectPauses, detectPauses);
 	SET_TRACK_OPTION(automaticPause, setAutomaticPause);
 	SET_TRACK_OPTION(pauseSpeed, setPauseSpeed);
 	SET_TRACK_OPTION(pauseInterval, setPauseInterval);
@@ -3150,11 +3206,8 @@ void GUI::updateOptions(const Options &options)
 
 	if (options.pixmapCache != _options.pixmapCache)
 		QPixmapCache::setCacheLimit(options.pixmapCache * 1024);
-	if (options.demCache != _options.demCache) {
-		DEM::lock();
+	if (options.demCache != _options.demCache)
 		DEM::setCacheSize(options.demCache * 1024);
-		DEM::unlock();
-	}
 
 	SET_HS_OPTION(hillshadingAlpha, setAlpha);
 	SET_HS_OPTION(hillshadingBlur, setBlur);

@@ -1,9 +1,8 @@
 #include <cmath>
+#include <QtMath>
 #include "jls.h"
 
 using namespace IMG;
-
-#define max(a, b) ((a) > (b) ? (a) : (b))
 
 static const quint8 Z[] = {
 	8, 7, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4,
@@ -27,9 +26,9 @@ JLS::JLS(quint16 maxval, quint16 near)
 	_near = near;
 
 	_range = ((_maxval + _near * 2) / (_near * 2 + 1)) + 1;
-	_qbpp = ceil(log2(_range));
-	quint8 bpp = max(2, ceil(log2(_maxval + 1)));
-	quint8 LIMIT = 2 * (bpp + max(8, bpp));
+	_qbpp = qCeil(log2(_range));
+	quint8 bpp = qMax(2, qCeil(log2(_maxval + 1)));
+	quint8 LIMIT = 2 * (bpp + qMax((quint8)8, bpp));
 	_limit = LIMIT - _qbpp - 1;
 }
 
@@ -312,7 +311,7 @@ bool JLS::decode(const SubFile *file, SubFile::Handle &hdl, Matrix<qint16> &img)
 	_rg = 1;
 	_lrk = 0;
 
-	quint16 A = max(2, (_range + 32) / 64);
+	quint16 A = qMax(2, (_range + 32) / 64);
 	for (int i = 0; i < 4; i++) {
 		_a[i] = A;
 		_b[i] = 0;
@@ -323,7 +322,7 @@ bool JLS::decode(const SubFile *file, SubFile::Handle &hdl, Matrix<qint16> &img)
 		if (!readLine(bs))
 			return false;
 
-		memcpy(&img.at(i, 0), _current + 1, _w * sizeof(quint16));
+		memcpy(img.row(i), _current + 1, _w * sizeof(quint16));
 
 		quint16 *tmp = _last;
 		_last = _current;

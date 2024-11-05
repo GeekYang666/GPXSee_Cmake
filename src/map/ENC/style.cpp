@@ -235,6 +235,8 @@ void Style::pointStyle(qreal ratio)
 	_points[SUBTYPE(LNDMRK, 7)] = Point(QImage(":/marine/pylon.png"), Small);
 	_points[SUBTYPE(LNDMRK, 9)] = Point(QImage(":/marine/monument.png"), Small,
 	 QPoint(0, -7));
+	_points[SUBTYPE(LNDMRK, 15)] = Point(QImage(":/marine/dome.png"), Small,
+	 QPoint(0, -5));
 	_points[SUBTYPE(LNDMRK, 17)] = Point(QImage(":/marine/tower.png"), Small,
 	  QPoint(0, -11));
 	_points[SUBTYPE(LNDMRK, 18)] = Point(QImage(":/marine/windmill.png"), Small);
@@ -332,6 +334,7 @@ void Style::pointStyle(qreal ratio)
 	_points[TYPE(CURENT)] = Point(QImage(":/marine/current.png"));
 	_points[SUBTYPE(WEDKLP, 0)] = Point(QImage(":/marine/kelp.png"));
 	_points[SUBTYPE(WEDKLP, 1)] = Point(QImage(":/marine/kelp.png"));
+	_points[TYPE(SEAARE)].setHaloColor(QColor());
 
 	_points[SUBTYPE(SMCFAC, 7)] = Point(svg2img(":/POI/restaurant-11.svg",
 	  ratio), Small);

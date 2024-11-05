@@ -1,7 +1,7 @@
 #include <cmath>
 #include <QPainter>
 #include <QCache>
-#include "common/dem.h"
+#include "map/dem.h"
 #include "map/rectd.h"
 #include "map/hillshading.h"
 #include "map/filter.h"
@@ -15,32 +15,21 @@ using namespace Mapsforge;
 
 static double LIMIT = cos(deg2rad(170));
 
-static qreal area(const QPainterPath &polygon)
-{
-	qreal area = 0;
-
-	for (int i = 0; i < polygon.elementCount(); i++) {
-		int j = (i + 1) % polygon.elementCount();
-		area += polygon.elementAt(i).x * polygon.elementAt(j).y;
-		area -= polygon.elementAt(i).y * polygon.elementAt(j).x;
-	}
-	area /= 2.0;
-
-	return area;
-}
-
 static QPointF centroid(const QPainterPath &polygon)
 {
+	qreal area = 0;
 	qreal cx = 0, cy = 0;
-	qreal factor = 1.0 / (6.0 * area(polygon));
 
 	for (int i = 0; i < polygon.elementCount(); i++) {
-		int j = (i + 1) % polygon.elementCount();
+		int j = (i == polygon.elementCount() - 1) ? 0 : i + 1;
 		qreal f = (polygon.elementAt(i).x * polygon.elementAt(j).y
 		  - polygon.elementAt(j).x * polygon.elementAt(i).y);
+		area += f;
 		cx += (polygon.elementAt(i).x + polygon.elementAt(j).x) * f;
 		cy += (polygon.elementAt(i).y + polygon.elementAt(j).y) * f;
 	}
+
+	qreal factor = 1.0 / (3.0 * area);
 
 	return QPointF(cx * factor, cy * factor);
 }
@@ -164,6 +153,7 @@ void RasterTile::processAreaLabels(const QVector<PainterPath> &paths,
 	QList<const Style::TextRender*> labels(_style->areaLabels(_zoom));
 	QList<const Style::Symbol*> symbols(_style->areaSymbols(_zoom));
 	QList<PathText> items;
+	QSet<QByteArray> set;
 
 	for (int i = 0; i < paths.size(); i++) {
 		const PainterPath &path = paths.at(i);
@@ -210,12 +200,17 @@ void RasterTile::processAreaLabels(const QVector<PainterPath> &paths,
 		QPointF pos = p.p->path->labelPos.isNull()
 		  ? centroid(p.p->pp) : ll2xy(p.p->path->labelPos);
 
+		if (p.ti && p.lbl && set.contains(*p.lbl))
+			continue;
+
 		PointItem *item = new PointItem(pos.toPoint(), p.lbl, font, img, color,
 		  hColor);
 		if (item->isValid() && _rect.contains(item->boundingRect().toRect())
-		  && !item->collides(textItems))
+		  && !item->collides(textItems)) {
 			textItems.append(item);
-		else
+			if (p.ti && p.lbl)
+				set.insert(*p.lbl);
+		} else
 			delete item;
 	}
 }
@@ -481,26 +476,17 @@ void RasterTile::fetchData(QList<MapData::Path> &paths,
 
 MatrixD RasterTile::elevation(int extend) const
 {
-	MatrixD m(_rect.height() + 2 * extend, _rect.width() + 2 * extend);
-
 	int left = _rect.left() - extend;
 	int right = _rect.right() + extend;
 	int top = _rect.top() - extend;
 	int bottom = _rect.bottom() + extend;
 
-	QVector<Coordinates> ll;
-	ll.reserve(m.w() * m.h());
-	for (int y = top; y <= bottom; y++) {
-		for (int x = left; x <= right; x++)
-			ll.append(xy2ll(QPointF(x, y)));
-	}
+	MatrixC ll(_rect.height() + 2 * extend, _rect.width() + 2 * extend);
+	for (int y = top, i = 0; y <= bottom; y++)
+		for (int x = left; x <= right; x++, i++)
+			ll.at(i) = xy2ll(QPointF(x, y));
 
-	DEM::lock();
-	for (int i = 0; i < ll.size(); i++)
-		m.at(i) = DEM::elevation(ll.at(i));
-	DEM::unlock();
-
-	return m;
+	return DEM::elevation(ll);
 }
 
 void RasterTile::render()

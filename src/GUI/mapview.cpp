@@ -19,7 +19,6 @@
 #include "coordinatesitem.h"
 #include "mapitem.h"
 #include "keys.h"
-#include "graphicsscene.h"
 #include "mapaction.h"
 #include "markerinfoitem.h"
 #include "crosshairitem.h"
@@ -63,7 +62,8 @@ MapView::MapView(Map *map, POI *poi, QWidget *parent) : QGraphicsView(parent)
 	_outputProjection = PCS::pcs(3857);
 	_inputProjection = GCS::gcs(4326);
 	_hidpi = true;
-	_hillShading = false;
+	_hillShading = true;
+	_layers = Layer::Raster | Layer::Vector;
 	_map = map;
 	_map->load(_inputProjection, _outputProjection, _deviceRatio, _hidpi);
 	connect(_map, &Map::tilesLoaded, this, &MapView::reloadMap);
@@ -684,9 +684,9 @@ void MapView::keyReleaseEvent(QKeyEvent *event)
 }
 
 void MapView::plot(QPainter *painter, const QRectF &target, qreal scale,
-  PlotFlags flags)
+  Flags flags)
 {
-	QRect orig, adj;
+	QRect orig;
 	qreal ratio, diff, q, p;
 	QPointF scenePos, scalePos, posPos, motionPos;
 	bool hidpi = _hidpi && _deviceRatio > 1.0;
@@ -699,6 +699,7 @@ void MapView::plot(QPainter *painter, const QRectF &target, qreal scale,
 
 	// Compute sizes & ratios
 	orig = viewport()->rect();
+	QRectF adj(orig);
 	scalePos = _mapScale->pos();
 	posPos = _positionCoordinates->pos();
 	motionPos = _motionInfo->pos();
@@ -706,11 +707,11 @@ void MapView::plot(QPainter *painter, const QRectF &target, qreal scale,
 	if (orig.height() * (target.width() / target.height()) - orig.width() < 0) {
 		ratio = target.height() / target.width();
 		diff = (orig.width() * ratio) - orig.height();
-		adj = orig.adjusted(0, -diff/2, 0, diff/2);
+		adj.adjust(0, -diff/2.0, 0, diff/2.0);
 	} else {
 		ratio = target.width() / target.height();
 		diff = (orig.height() * ratio) - orig.width();
-		adj = orig.adjusted(-diff/2, 0, diff/2, 0);
+		adj.adjust(-diff/2.0, 0, diff/2.0, 0);
 	}
 
 	// Expand the view if plotting into a bitmap
@@ -735,8 +736,8 @@ void MapView::plot(QPainter *painter, const QRectF &target, qreal scale,
 		  / (qreal)metric(QPaintDevice::PdmDpiX),
 		  painter->device()->logicalDpiY()
 		  / (qreal)metric(QPaintDevice::PdmDpiY));
-		adj = QRect(0, 0, adj.width() * s.x(), adj.height() * s.y());
-		_map->zoomFit(adj.size(), _tr | _rr | _wr | _ar);
+		adj = QRectF(0, 0, adj.width() * s.x(), adj.height() * s.y());
+		_map->zoomFit(adj.size().toSize(), _tr | _rr | _wr | _ar);
 		rescale();
 
 		QPointF center = contentCenter();
@@ -748,20 +749,20 @@ void MapView::plot(QPainter *painter, const QRectF &target, qreal scale,
 		p = 1 / q;
 
 	_mapScale->setDigitalZoom(_digitalZoom - log2(p));
-	_mapScale->setPos(mapToScene(adj.bottomRight() + QPoint(
+	_mapScale->setPos(mapToScene(adj.bottomRight().toPoint() + QPoint(
 	  -(SCALE_OFFSET + _mapScale->boundingRect().width()) * p,
 	  -(SCALE_OFFSET + _mapScale->boundingRect().height()) * p)));
 	_positionCoordinates->setDigitalZoom(_digitalZoom - log2(p));
-	_positionCoordinates->setPos(mapToScene(adj.topLeft() + QPoint(
+	_positionCoordinates->setPos(mapToScene(adj.topLeft().toPoint() + QPoint(
 	  COORDINATES_OFFSET * p,
 	  (COORDINATES_OFFSET + _positionCoordinates->boundingRect().height()) * p)));
 	_motionInfo->setDigitalZoom(_digitalZoom - log2(p));
-	_motionInfo->setPos(mapToScene(adj.topRight() + QPoint(
+	_motionInfo->setPos(mapToScene(adj.topRight().toPoint() + QPoint(
 	  (-COORDINATES_OFFSET - _motionInfo->boundingRect().width()) * p,
 	  (COORDINATES_OFFSET + _motionInfo->boundingRect().height()) * p)));
 
 	// Print the view
-	render(painter, target, adj);
+	render(painter, target, adj.toRect());
 
 	// Revert view changes to display mode
 	if (flags & HiRes) {
@@ -1116,6 +1117,10 @@ void MapView::drawBackground(QPainter *painter, const QRectF &rect)
 			flags = Map::OpenGL;
 		if (_hillShading)
 			flags |= Map::HillShading;
+		if (_layers & Layer::Raster)
+			flags |= Map::Rasters;
+		if (_layers & Layer::Vector)
+			flags |= Map::Vectors;
 
 		_map->draw(painter, ir, flags);
 	}
@@ -1249,6 +1254,13 @@ void MapView::useAntiAliasing(bool use)
 void MapView::drawHillShading(bool draw)
 {
 	_hillShading = draw;
+
+	setMap(_map);
+}
+
+void MapView::selectLayers(Layers layers)
+{
+	_layers = layers;
 
 	setMap(_map);
 }

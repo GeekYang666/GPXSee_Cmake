@@ -6,6 +6,8 @@
 #include "graph.h"
 #include "path.h"
 
+class Map;
+
 class Route
 {
 public:
@@ -13,7 +15,7 @@ public:
 
 	const RouteData &data() const {return _data;}
 	Path path() const;
-	GraphPair elevation() const;
+	GraphPair elevation(Map *map) const;
 	qreal distance() const;
 
 	const QString &name() const {return _data.name();}
@@ -21,6 +23,7 @@ public:
 	const QString &comment() const {return _data.comment();}
 	const QVector<Link> &links() const {return _data.links();}
 	const LineStyle &style() const {return _data.style();}
+	const QString &file() const {return _data.file();}
 
 	bool isValid() const {return _data.size() >= 2;}
 
@@ -30,7 +33,7 @@ public:
 
 private:
 	Graph gpsElevation() const;
-	Graph demElevation() const;
+	Graph demElevation(Map *map) const;
 
 	RouteData _data;
 	QVector<qreal> _distance;

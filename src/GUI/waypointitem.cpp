@@ -16,8 +16,9 @@ Units WaypointItem::_units = Metric;
 CoordinatesFormat WaypointItem::_format = DecimalDegrees;
 QTimeZone WaypointItem::_timeZone = QTimeZone::utc();
 
-ToolTip WaypointItem::info() const
+ToolTip WaypointItem::info(bool extended) const
 {
+	Q_UNUSED(extended);
 	ToolTip tt;
 	QLocale l;
 
@@ -25,17 +26,19 @@ ToolTip WaypointItem::info() const
 		tt.insert(qApp->translate("WaypointItem", "Name"), _waypoint.name());
 	tt.insert(qApp->translate("WaypointItem", "Coordinates"),
 	  Format::coordinates(_waypoint.coordinates(), _format));
-	QPair<qreal, qreal> elevations(_waypoint.elevations());
+	QPair<qreal, qreal> elevations(_waypoint.elevations(_map));
 	if (!std::isnan(elevations.first)) {
 		QString val = Format::elevation(elevations.first, _units);
 		if (!std::isnan(elevations.second))
 			val += " (" + Format::elevation(elevations.second, _units) + ")";
 		tt.insert(qApp->translate("WaypointItem", "Elevation"), val);
 	}
-	if (_waypoint.timestamp().isValid())
+	if (_waypoint.timestamp().isValid()) {
+		QDateTime date(_waypoint.timestamp().toTimeZone(_timeZone));
 		tt.insert(qApp->translate("WaypointItem", "Date"),
-		  l.toString(_waypoint.timestamp().toTimeZone(_timeZone),
-		  QLocale::ShortFormat));
+		  l.toString(date.date(), QLocale::ShortFormat) + " "
+			+ date.time().toString("h:mm:ss"));
+	}
 	if (!_waypoint.description().isEmpty())
 		tt.insert(qApp->translate("WaypointItem", "Description"),
 		  _waypoint.description());
@@ -71,7 +74,7 @@ ToolTip WaypointItem::info() const
 }
 
 WaypointItem::WaypointItem(const Waypoint &waypoint, Map *map,
-  QGraphicsItem *parent) : GraphicsItem(parent)
+  QGraphicsItem *parent) : GraphicsItem(parent), _map(map)
 {
 	_waypoint = waypoint;
 	_showLabel = false;
@@ -91,6 +94,12 @@ WaypointItem::WaypointItem(const Waypoint &waypoint, Map *map,
 	setPos(map->ll2xy(waypoint.coordinates()));
 	setCursor(Qt::ArrowCursor);
 	setAcceptHoverEvents(true);
+}
+
+void WaypointItem::setMap(Map *map)
+{
+	_map = map;
+	setPos(map->ll2xy(_waypoint.coordinates()));
 }
 
 void WaypointItem::updateCache()
@@ -266,7 +275,10 @@ void WaypointItem::hoverLeaveEvent(QGraphicsSceneHoverEvent *event)
 
 void WaypointItem::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
-	Popup::show(event->screenPos(), info(), event->widget());
+	GraphicsScene *gs = dynamic_cast<GraphicsScene *>(scene());
+	if (gs)
+		Popup::show(event->screenPos(), info(gs->showExtendedInfo()),
+		  event->widget());
 	/* Do not propagate the event any further as lower stacked items (path
 	   items) would replace the popup with their own popup */
 }

@@ -17,18 +17,26 @@
 #include <QRegularExpression>
 #include <QLocale>
 #include <private/qzipreader_p.h>
-#include "rectc.h"
+#include "common/rectc.h"
 #include "dem.h"
 
 
 static unsigned int isqrt(unsigned int x)
 {
-	unsigned int r = 0;
+	unsigned int l = 0;
+	unsigned int m;
+	unsigned int r = x + 1;
 
-	while ((r + 1) * (r + 1) <= x)
-		r++;
+	while (l != r - 1) {
+		m = (l + r) / 2;
 
-	return r;
+		if (m * m <= x)
+			l = m;
+		else
+			r = m;
+	}
+
+	return l;
 }
 
 static double interpolate(double dx, double dy, double p0, double p1, double p2,
@@ -46,7 +54,6 @@ static double value(int col, int row, int samples, const QByteArray &data)
 	return (val == -32768) ? NAN : val;
 }
 
-QMutex DEM::_lock;
 
 DEM::Entry::Entry(const QByteArray &data) : _data(data)
 {
@@ -70,12 +77,16 @@ QString DEM::Tile::fileName() const
 	return QString("%1%2.hgt").arg(latStr(), lonStr());
 }
 
+
+QMutex DEM::_lock;
 QString DEM::_dir;
 DEM::TileCache DEM::_data;
 
 void DEM::setCacheSize(int size)
 {
+	_lock.lock();
 	_data.setMaxCost(size);
+	_lock.unlock();
 }
 
 void DEM::setDir(const QString &path)
@@ -85,7 +96,9 @@ void DEM::setDir(const QString &path)
 
 void DEM::clearCache()
 {
+	_lock.lock();
 	_data.clear();
+	_lock.unlock();
 }
 
 double DEM::height(const Coordinates &c, const Entry *e)
@@ -126,11 +139,8 @@ DEM::Entry *DEM::loadTile(const Tile &tile)
 	}
 }
 
-double DEM::elevation(const Coordinates &c)
+double DEM::elevationLockFree(const Coordinates &c)
 {
-	if (_dir.isEmpty())
-		return NAN;
-
 	Tile tile(floor(c.lon()), floor(c.lat()));
 	Entry *e = _data.object(tile);
 	double ele;
@@ -143,6 +153,33 @@ double DEM::elevation(const Coordinates &c)
 		ele = height(c, e);
 
 	return ele;
+}
+
+double DEM::elevation(const Coordinates &c)
+{
+	if (_dir.isEmpty())
+		return NAN;
+
+	_lock.lock();
+	double ele = elevationLockFree(c);
+	_lock.unlock();
+
+	return ele;
+}
+
+MatrixD DEM::elevation(const MatrixC &m)
+{
+	if (_dir.isEmpty())
+		return MatrixD(m.h(), m.w(), NAN);
+
+	MatrixD ret(m.h(), m.w());
+
+	_lock.lock();
+	for (int i = 0; i < m.size(); i++)
+		ret.at(i) = elevationLockFree(m.at(i));
+	_lock.unlock();
+
+	return ret;
 }
 
 QList<Area> DEM::tiles()

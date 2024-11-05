@@ -248,30 +248,33 @@ void GraphItem::setScale(qreal sx, qreal sy)
 	if (_sx == sx && _sy == sy)
 		return;
 
-	prepareGeometryChange();
-
 	_sx = sx; _sy = sy;
+
 	updatePath();
 }
 
 void GraphItem::updatePath()
 {
-	if (_sx == 0 && _sy == 0)
-		return;
-
 	prepareGeometryChange();
 
 	_path = QPainterPath();
 
-	if (!(_type == Time && !_time)) {
+	if (!((_type == Time && !_time) || _sx == 0 || _sy == 0)) {
 		for (int i = 0; i < _graph.size(); i++) {
 			const GraphSegment &segment = _graph.at(i);
-
-			_path.moveTo(segment.first().x(_type) * _sx, -segment.first().y()
+			QPointF p1(segment.first().x(_type) * _sx, -segment.first().y()
 			  * _sy);
-			for (int i = 1; i < segment.size(); i++)
-				_path.lineTo(segment.at(i).x(_type) * _sx, -segment.at(i).y()
+
+			_path.moveTo(p1);
+			for (int i = 1; i < segment.size(); i++) {
+				QPointF p2(segment.at(i).x(_type) * _sx, -segment.at(i).y()
 				  * _sy);
+				QPointF diff(p1 - p2);
+				if (qAbs(diff.x()) >= 1.0 || qAbs(diff.y()) >= 1.0) {
+					_path.lineTo(p2);
+					p1 = p2;
+				}
+			}
 		}
 	}
 
@@ -379,6 +382,9 @@ void GraphItem::hoverLeaveEvent(QGraphicsSceneHoverEvent *event)
 
 void GraphItem::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
-	Popup::show(event->screenPos(), info(), event->widget());
+	GraphicsScene *gs = dynamic_cast<GraphicsScene *>(scene());
+	if (gs)
+		Popup::show(event->screenPos(), info(gs->showExtendedInfo()),
+		  event->widget());
 	GraphicsItem::mousePressEvent(event);
 }

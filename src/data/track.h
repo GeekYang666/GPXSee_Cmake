@@ -9,6 +9,7 @@
 #include "graph.h"
 #include "path.h"
 
+class Map;
 
 class Track
 {
@@ -17,7 +18,7 @@ public:
 
 	Path path() const;
 
-	GraphPair elevation() const;
+	GraphPair elevation(Map *map) const;
 	GraphPair speed() const;
 	Graph heartRate() const;
 	Graph temperature() const;
@@ -35,6 +36,7 @@ public:
 	const QString &comment() const {return _data.comment();}
 	const QVector<Link> &links() const {return _data.links();}
 	const LineStyle &style() const {return _data.style();}
+	const QString &file() const {return _data.file();}
 
 	bool isValid() const;
 
@@ -43,6 +45,7 @@ public:
 	static void setHeartRateFilter(int window) {_heartRateWindow = window;}
 	static void setCadenceFilter(int window) {_cadenceWindow = window;}
 	static void setPowerFilter(int window) {_powerWindow = window;}
+	static void detectPauses(bool detect) {_detectPauses = detect;}
 	static void setAutomaticPause(bool set) {_automaticPause = set;}
 	static void setPauseSpeed(qreal speed) {_pauseSpeed = speed;}
 	static void setPauseInterval(int interval) {_pauseInterval = interval;}
@@ -68,7 +71,7 @@ private:
 	qreal lastTime(int seg);
 	bool discardStopPoint(const Segment &seg, int i) const;
 
-	Graph demElevation() const;
+	Graph demElevation(Map *map) const;
 	Graph gpsElevation() const;
 	Graph reportedSpeed() const;
 	Graph computedSpeed() const;
@@ -83,6 +86,7 @@ private:
 	static int _heartRateWindow;
 	static int _cadenceWindow;
 	static int _powerWindow;
+	static bool _detectPauses;
 	static bool _automaticPause;
 	static qreal _pauseSpeed;
 	static int _pauseInterval;

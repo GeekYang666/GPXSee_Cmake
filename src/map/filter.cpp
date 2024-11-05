@@ -95,35 +95,44 @@ static void gaussBlur4(MatrixD &src, MatrixD &dst, int r)
 	boxBlur4(src, dst, (bxs.at(2) - 1) / 2);
 }
 
+static int hasNANs(const MatrixD &m)
+{
+	for (int i = 0; i < m.size(); i++)
+		if (std::isnan(m.at(i)))
+			return i;
+
+	return -1;
+}
+
 MatrixD Filter::blur(const MatrixD &m, int radius)
 {
 	MatrixD src(m);
 	MatrixD dst(m.h(), m.w());
-	double sum = 0;
-	int cnt = 0;
+	int firstNAN = hasNANs(m);
 
-	for (int i = 0; i < m.size(); i++) {
-		if (!std::isnan(m.at(i))) {
-			sum += m.at(i);
-			cnt++;
+	if (firstNAN >= 0) {
+		// https://stackoverflow.com/a/36307291
+		MatrixD z(m.h(), m.w(), 1);
+		MatrixD zdst(m.h(), m.w());
+
+		for (int i = firstNAN; i < m.size(); i++) {
+			if (std::isnan(m.at(i))) {
+				z.at(i) = 0;
+				src.at(i) = 0;
+			}
 		}
-	}
 
-	if (cnt != m.size()) {
-		double avg = sum / cnt;
+		gaussBlur4(z, zdst, radius);
+		gaussBlur4(src, dst, radius);
 
 		for (int i = 0; i < m.size(); i++)
-			if (std::isnan(m.at(i)))
-				src.at(i) = avg;
-	}
+			dst.at(i) = dst.at(i) / zdst.at(i);
 
-	gaussBlur4(src, dst, radius);
-
-	if (cnt != m.size()) {
-		for (int i = 0; i < dst.size(); i++)
+		for (int i = firstNAN; i < m.size(); i++)
 			if (std::isnan(m.at(i)))
 				dst.at(i) = NAN;
-	}
+	} else
+		gaussBlur4(src, dst, radius);
 
 	return dst;
 }

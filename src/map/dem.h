@@ -7,8 +7,7 @@
 #include <QMutex>
 #include "common/hash.h"
 #include "data/area.h"
-
-class Coordinates;
+#include "matrix.h"
 
 class DEM
 {
@@ -38,8 +37,7 @@ public:
 	static void clearCache();
 
 	static double elevation(const Coordinates &c);
-	static void lock() {_lock.lock();}
-	static void unlock() {_lock.unlock();}
+	static MatrixD elevation(const MatrixC &m);
 
 	static QList<Area> tiles();
 
@@ -61,6 +59,7 @@ private:
 
 	static double height(const Coordinates &c, const Entry *e);
 	static Entry *loadTile(const Tile &tile);
+	static double elevationLockFree(const Coordinates &c);
 
 	static QString _dir;
 	static TileCache _data;

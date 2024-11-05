@@ -161,6 +161,34 @@ static QImage railroad(qreal ratio)
 	return img;
 }
 
+static QImage fence(qreal ratio)
+{
+	QImage img(8 * ratio, 3 * ratio, QImage::Format_ARGB32_Premultiplied);
+	img.setDevicePixelRatio(ratio);
+	img.fill(Qt::transparent);
+	QPainter p(&img);
+	p.setPen(QPen(Qt::gray, 1));
+	p.drawLine(0, 0, 0, 2);
+	p.drawLine(0, 1, 7, 1);
+
+	return img;
+}
+
+static QImage pipeline(qreal ratio)
+{
+	QImage img(10 * ratio, 4 * ratio, QImage::Format_ARGB32_Premultiplied);
+	img.setDevicePixelRatio(ratio);
+	img.fill(Qt::transparent);
+	QPainter p(&img);
+	p.setPen(QPen(Qt::darkGray, 1));
+	p.drawLine(0, 0, 0, 3);
+	p.drawLine(1, 0, 1, 3);
+	p.drawLine(0, 1, 9, 1);
+	p.drawLine(0, 2, 9, 2);
+
+	return img;
+}
+
 void Style::defaultPolygonStyle()
 {
 	_polygons[TYPE(0x01)] = Polygon(QBrush(QColor(0xdf, 0xd3, 0xb5)));
@@ -198,6 +226,7 @@ void Style::defaultPolygonStyle()
 	  Qt::BDiagPattern));
 	_polygons[TYPE(0x1f)] = Polygon(QBrush(QColor(0x9a, 0xc2, 0x69),
 	  Qt::BDiagPattern));
+	_polygons[TYPE(0x26)] = Polygon(QBrush(QColor(0xd6, 0xd4, 0xce)));
 	_polygons[TYPE(0x28)] = Polygon(QBrush(QColor(0x9f, 0xc4, 0xe1)));
 	_polygons[TYPE(0x32)] = Polygon(QBrush(QColor(0x9f, 0xc4, 0xe1)));
 	_polygons[TYPE(0x3c)] = Polygon(QBrush(QColor(0x9f, 0xc4, 0xe1)));
@@ -281,24 +310,28 @@ void Style::defaultPolygonStyle()
 	_polygons[0x10102] = Polygon(QBrush(QColor(0xd9, 0x8b, 0x21)));
 	_polygons[0x10104] = Polygon(QBrush(QColor(0xff, 0xff, 0xff)));
 	_polygons[0x10105] = Polygon(QBrush(QColor(0xa5, 0x81, 0x40)));
+	_polygons[0x10106] = Polygon(QBrush(QColor(0xf1, 0xf0, 0xe5)));
 	_polygons[0x10301] = Polygon(QBrush(QColor(0x98, 0xc0, 0x64)));
 	_polygons[0x10302] = Polygon(QBrush(QColor(0xa0, 0xa0, 0xff)));
 	_polygons[0x10303] = Polygon(QBrush(QColor(0xb0, 0xb0, 0xff)));
 	_polygons[0x10304] = Polygon(QBrush(QColor(0xc0, 0xc0, 0xff)));
 	_polygons[0x10305] = Polygon(QBrush(QColor(0xc0, 0xd0, 0xff)));
 	_polygons[0x10306] = Polygon(QBrush(QColor(0xc0, 0xe0, 0xff)));
+	_polygons[0x10307] = Polygon(QBrush(QColor(0xff, 0xff, 0xff)));
+	_polygons[0x10308] = Polygon(QBrush(QColor(0xff, 0xff, 0xff)));
 	_polygons[0x10409] = Polygon(QBrush(QColor(0xff, 0x40, 0x40),
 	  Qt::FDiagPattern));
 	_polygons[0x10503] = Polygon(QBrush(QColor(0xff, 0x40, 0x40),
 	  Qt::FDiagPattern));
 	_polygons[0x10601] = Polygon(QBrush(QColor(0xaa, 0xaa, 0xaa)));
 	_polygons[0x1060a] = Polygon(QBrush(QColor(0xfc, 0xb4, 0xfc)));
+	_polygons[0x10614] = Polygon(QBrush(QColor(0xff, 0xff, 0xff)));
 
 	// Draw order
 	_drawOrder
-	  << TYPE(0x4b) << 0x10d01 << 0x10104 << TYPE(0x4a)
+	  << TYPE(0x4b) << 0x10d01 << 0x10106 << 0x10104 << TYPE(0x4a) << 0x10614
 	  << 0x10101 << 0x10102 << 0x10301 << 0x10302 << 0x10303 << 0x10304
-	  << 0x10305 << 0x10306 << 0x10601 << 0x10105
+	  << 0x10305 << 0x10306 << 0x10307 << 0x10308 << 0x10601 << 0x10105
 	  << TYPE(0x01) << 0x10800 << TYPE(0x02) << 0x10801 << TYPE(0x03) << 0x10802
 	  << TYPE(0x17) << 0x10a04 << TYPE(0x18) << 0x1090c << TYPE(0x1a) << 0x1090e
 	  << TYPE(0x28) << 0x10b01 << TYPE(0x32) << 0x10b02 << TYPE(0x3c) << 0x10b03
@@ -313,7 +346,7 @@ void Style::defaultPolygonStyle()
 	  << TYPE(0x04) << 0x10901 << TYPE(0x05) << 0x10902 << TYPE(0x06) << 0x10903
 	  << TYPE(0x07) << 0x10904 << TYPE(0x08) << 0x10905 << TYPE(0x09) << 0x10906
 	  << TYPE(0x0a) << 0x10907 << TYPE(0x0b) << 0x10908 << TYPE(0x0c) << 0x10909
-	  << TYPE(0x0d) << 0x1090a << TYPE(0x0e) << 0x1090b << TYPE(0x0f)
+	  << TYPE(0x26) << TYPE(0x0d) << 0x1090a << TYPE(0x0e) << 0x1090b << TYPE(0x0f)
 	  << TYPE(0x10) << TYPE(0x11) << TYPE(0x12) << TYPE(0x19) << 0x1090d
 	  << TYPE(0x13) << 0x10900 << 0x10613 << 0x10409 << 0x10503 << 0x1060a;
 }
@@ -354,8 +387,11 @@ void Style::defaultLineStyle(qreal ratio)
 	_lines[TYPE(0x0c)] = Line(QPen(QColor(0xff, 0xff, 0xff), 3, Qt::SolidLine),
 	  QPen(QColor(0xd5, 0xcd, 0xc0), 5, Qt::SolidLine, Qt::RoundCap,
 	  Qt::RoundJoin));
+	_lines[TYPE(0x11)] = Line(QPen(QColor(0xff, 0xff, 0xff), 2, Qt::SolidLine));
 	_lines[TYPE(0x14)] = Line(railroad(ratio));
 	_lines[TYPE(0x16)] = Line(QPen(QColor(0xab, 0xa0, 0x83), 1, Qt::DotLine));
+	_lines[TYPE(0x17)] = Line(fence(ratio));
+	_lines[TYPE(0x17)].setTextFontSize(None);
 	_lines[TYPE(0x18)] = Line(QPen(QColor(0x9f, 0xc4, 0xe1), 2, Qt::SolidLine));
 	_lines[TYPE(0x18)].setTextColor(QColor(0x9f, 0xc4, 0xe1));
 	//_lines[TYPE(0x1a)] = Line(QPen(QColor(0x76, 0x97, 0xb7), 1, Qt::DashLine));
@@ -384,24 +420,32 @@ void Style::defaultLineStyle(qreal ratio)
 	_lines[TYPE(0x27)] = Line(QPen(QColor(0xff, 0xff, 0xff), 4, Qt::SolidLine),
 	  QPen(QColor(0xd5, 0xcd, 0xc0), 5, Qt::SolidLine, Qt::RoundCap,
 	  Qt::RoundJoin));
-	//_lines[TYPE(0x28)] = Line(QPen(QColor(0x5a, 0x5a, 0x5a"), 1, Qt::SolidLine));
+	_lines[TYPE(0x28)] = Line(pipeline(ratio));
 	_lines[TYPE(0x29)] = Line(QPen(QColor(0x5a, 0x5a, 0x5a), 1, Qt::SolidLine));
 	_lines[TYPE(0x29)].setTextFontSize(None);
+	_lines[TYPE(0x30)] = Line(QPen(QColor(0xe4, 0xef, 0xcf), 3, Qt::SolidLine),
+	  QPen(QColor(0xc9, 0xd3, 0xa5), 5, Qt::SolidLine, Qt::RoundCap,
+	  Qt::RoundJoin));
 
 	// NT types
-	_lines[0x10c00] = _lines[TYPE(0x14)];
-	_lines[0x10a00] = _lines[TYPE(0x18)];
-	_lines[0x10b04] = _lines[TYPE(0x1e)];
-	_lines[0x10a01] = _lines[TYPE(0x1f)];
+	_lines[0x10801] = _lines[TYPE(0x02)];
+	_lines[0x10802] = _lines[TYPE(0x03)];
+	_lines[0x10803] = _lines[TYPE(0x04)];
+	_lines[0x10804] = _lines[TYPE(0x05)];
 	_lines[0x10900] = _lines[TYPE(0x20)];
 	_lines[0x10901] = _lines[TYPE(0x21)];
 	_lines[0x10902] = _lines[TYPE(0x22)];
 	_lines[0x10903] = _lines[TYPE(0x23)];
 	_lines[0x10904] = _lines[TYPE(0x24)];
 	_lines[0x10905] = _lines[TYPE(0x25)];
+	_lines[0x10a00] = _lines[TYPE(0x18)];
+	_lines[0x10a01] = _lines[TYPE(0x1f)];
 	_lines[0x10a02] = _lines[TYPE(0x26)];
+	_lines[0x10b02] = _lines[TYPE(0x1c)];
+	_lines[0x10b04] = _lines[TYPE(0x1e)];
+	_lines[0x10c00] = _lines[TYPE(0x14)];
 	_lines[0x10c02] = _lines[TYPE(0x27)];
-	//_lines[0x10c03] = _lines[TYPE(0x28)];
+	_lines[0x10c03] = _lines[TYPE(0x28)];
 	_lines[0x10c04] = _lines[TYPE(0x29)];
 
 	// Marine stuff
@@ -411,6 +455,7 @@ void Style::defaultLineStyle(qreal ratio)
 	_lines[0x10108] = Line(QPen(QColor(0, 0, 0), 1, Qt::SolidLine));
 	_lines[0x10301] = Line(QPen(QColor(0x0e, 0x10, 0x87), 1, Qt::SolidLine));
 	_lines[0x10307] = Line(QPen(QColor(0x05, 0x62, 0x0e), 1, Qt::SolidLine));
+	_lines[0x10309] = Line(QPen(QColor(0x0e, 0x10, 0x87), 1, Qt::SolidLine));
 	_lines[0x10401] = Line(QImage(":/marine/cable.png"));
 	_lines[0x10402] = Line(QImage(":/marine/pipeline.png"));
 	_lines[0x10404] = Line(QImage(":/marine/fishing-farm-line.png"));
@@ -670,17 +715,17 @@ void Style::defaultPointStyle(qreal ratio)
 	_points[0x11108] = _points[0x3008];
 
 	// Marine stuff
-	_points[0x10100] = Point(QImage(":/marine/light-major.png"), QPoint(8, -8));
-	_points[0x10101] = Point(QImage(":/marine/light-major.png"), QPoint(8, -8));
-	_points[0x10102] = Point(QImage(":/marine/light-major.png"), QPoint(8, -8));
-	_points[0x10103] = Point(QImage(":/marine/light-major.png"), QPoint(8, -8));
-	_points[0x10104] = Point(QImage(":/marine/light-major.png"), QPoint(8, -8));
-	_points[0x10105] = Point(QImage(":/marine/light-major.png"), QPoint(8, -8));
-	_points[0x10106] = Point(QImage(":/marine/light-major.png"), QPoint(8, -8));
-	_points[0x10107] = Point(QImage(":/marine/light-major.png"), QPoint(8, -8));
-	_points[0x10108] = Point(QImage(":/marine/light-major.png"), QPoint(8, -8));
-	_points[0x10109] = Point(QImage(":/marine/light-major.png"), QPoint(8, -8));
-	_points[0x1010a] = Point(QImage(":/marine/light-major.png"), QPoint(8, -8));
+	_points[0x10100] = Point(QImage(":/marine/light-major.png"));
+	_points[0x10101] = Point(QImage(":/marine/light-major.png"));
+	_points[0x10102] = Point(QImage(":/marine/light-major.png"));
+	_points[0x10103] = Point(QImage(":/marine/light-major.png"));
+	_points[0x10104] = Point(QImage(":/marine/light-major.png"));
+	_points[0x10105] = Point(QImage(":/marine/light-major.png"));
+	_points[0x10106] = Point(QImage(":/marine/light-major.png"));
+	_points[0x10107] = Point(QImage(":/marine/light-major.png"));
+	_points[0x10108] = Point(QImage(":/marine/light-major.png"));
+	_points[0x10109] = Point(QImage(":/marine/light-major.png"));
+	_points[0x1010a] = Point(QImage(":/marine/light-major.png"));
 	_points[0x10200] = Point(QImage(":/marine/buoy.png"), QPoint(6, -6));
 	_points[0x10201] = Point(QImage(":/marine/buoy.png"), QPoint(6, -6));
 	_points[0x10202] = Point(QImage(":/marine/buoy.png"), QPoint(6, -6));
@@ -689,11 +734,12 @@ void Style::defaultPointStyle(qreal ratio)
 	_points[0x10205] = Point(QImage(":/marine/buoy.png"), QPoint(6, -6));
 	_points[0x10206] = Point(QImage(":/marine/beacon.png"), QPoint(0, -8));
 	_points[0x10207] = Point(QImage(":/marine/spar-buoy.png"), QPoint(2, -9));
+	_points[0x10208] = Point(QImage(":/marine/buoy.png"), QPoint(2, -9));
 	_points[0x10209] = Point(QImage(":/marine/buoy.png"), QPoint(6, -6));
 	_points[0x1020a] = Point(QImage(":/marine/buoy.png"), QPoint(6, -6));
 	_points[0x1020b] = Point(QImage(":/marine/buoy.png"), QPoint(6, -6));
-	_points[0x1020d] = Point(QImage(":/marine/light-platform.png"),
-	  QPoint(8, -8));
+	_points[0x1020c] = Point(QImage(":/marine/buoy.png"), QPoint(6, -6));
+	_points[0x1020d] = Point(QImage(":/marine/platform.png"));
 	_points[0x1020e] = Point(QImage(":/marine/beacon.png"), QPoint(0, -8));
 	_points[0x1020f] = Point(QImage(":/marine/beacon.png"), QPoint(0, -8));
 	_points[0x10210] = Point(QImage(":/marine/beacon.png"), QPoint(0, -8));
@@ -703,6 +749,7 @@ void Style::defaultPointStyle(qreal ratio)
 	_points[0x10214] = Point(QImage(":/marine/beacon.png"), QPoint(0, -8));
 	_points[0x10215] = Point(QImage(":/marine/beacon.png"), QPoint(0, -8));
 	_points[0x10216] = Point(QImage(":/marine/mooring-buoy.png"), QPoint(0, -5));
+	_points[0x10304] = Point(QImage(":/marine/building.png"));
 	_points[0x10305] = Point(QImage(":/marine/chimney.png"), QPoint(0, -11));
 	_points[0x10306] = Point(QImage(":/marine/church.png"));
 	_points[0x10307] = Point(QImage(":/marine/silo.png"));
@@ -1270,6 +1317,9 @@ Style::Style(qreal ratio, SubFile *typ)
 	_normal = pixelSizeFont(14);
 	_small = pixelSizeFont(12);
 	_extraSmall = pixelSizeFont(10);
+
+	_light = QImage(":/marine/light.png");
+	_lightOffset = QPoint(11, 11);
 
 	defaultLineStyle(ratio);
 	defaultPolygonStyle();
